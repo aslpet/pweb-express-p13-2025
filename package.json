@@ -1,0 +1,40 @@
+{
+  "name": "pweb-express-p01-2025",
+  "version": "1.0.0",
+  "description": "IT Literature Shop Backend API",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aslpet/pweb-express-p13-2025.git"
+  },
+  "keywords": ["express", "typescript", "prisma", "postgresql"],
+  "author": "068, 096, 105",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aslpet/pweb-express-p13-2025/issues"
+  },
+  "homepage": "https://github.com/aslpet/pweb-express-p13-2025#readme",
+  "dependencies": {
+    "@prisma/client": "^6.17.1",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^6.17.1"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.10.5",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}

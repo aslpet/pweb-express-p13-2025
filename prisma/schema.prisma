@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(uuid()) @db.Uuid
+  username   String   @unique
+  password   String
+  email      String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  orders Order[]
+
+  @@map("users")
+}
+
+model Genre {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+
+  books Book[]
+
+  @@map("genres")
+}
+
+model Book {
+  id               String    @id @default(uuid()) @db.Uuid
+  title            String    @unique
+  writer           String
+  publisher        String
+  publication_year Int
+  description      String
+  price            Decimal   @db.Decimal(10, 2)
+  stock_quantity   Int
+  genre_id         String    @db.Uuid
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  deleted_at       DateTime?
+
+  genre       Genre       @relation(fields: [genre_id], references: [id])
+  order_items OrderItem[]
+
+  @@map("books")
+}
+
+model Order {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user        User        @relation(fields: [user_id], references: [id])
+  order_items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  quantity   Int
+  order_id   String   @db.Uuid
+  book_id    String   @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  order Order @relation(fields: [order_id], references: [id])
+  book  Book  @relation(fields: [book_id], references: [id])
+
+  @@map("order_items")
+}
