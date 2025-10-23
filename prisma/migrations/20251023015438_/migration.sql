@@ -1,9 +1,9 @@
 -- CreateTable
 CREATE TABLE "users" (
     "id" UUID NOT NULL,
-    "username" TEXT NOT NULL,
+    "username" TEXT,
+    "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
-    "email" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -62,7 +62,7 @@ CREATE TABLE "order_items" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "genres_name_key" ON "genres"("name");

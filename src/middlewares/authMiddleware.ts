@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 export interface AuthRequest extends Request {
   user?: {
     id: string;
-    username: string;
+    email: string;
   };
 }
 
@@ -18,15 +18,15 @@ export const authMiddleware = (
     
     if (!authHeader) {
       return res.status(401).json({
-        status: 'error',
-        message: 'Token tidak ditemukan'
+        success: false,
+        message: 'Token not found'
       });
     }
 
     if (!authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
-        status: 'error',
-        message: 'Format token tidak valid. Gunakan: Bearer <token>'
+        success: false,
+        message: 'Invalid token format'
       });
     }
 
@@ -34,14 +34,14 @@ export const authMiddleware = (
 
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({
-        status: 'error',
+        success: false,
         message: 'Server configuration error'
       });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as {
       id: string;
-      username: string;
+      email: string;
     };
 
     req.user = decoded;
@@ -49,21 +49,21 @@ export const authMiddleware = (
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       return res.status(401).json({
-        status: 'error',
-        message: 'Token tidak valid'
+        success: false,
+        message: 'Invalid token'
       });
     }
     
     if (error instanceof jwt.TokenExpiredError) {
       return res.status(401).json({
-        status: 'error',
-        message: 'Token sudah kadaluarsa'
+        success: false,
+        message: 'Token expired'
       });
     }
 
     return res.status(401).json({
-      status: 'error',
-      message: 'Autentikasi gagal'
+      success: false,
+      message: 'Authentication failed'
     });
   }
 };

@@ -1,43 +1,61 @@
-// Shared response types
+// Shared response types (sesuai dokumentasi)
 export interface ApiResponse<T = any> {
-  status: 'success' | 'error';
-  message?: string;
+  success: boolean;  // ← Berubah dari 'status'
+  message: string;
   data?: T;
 }
 
 export interface PaginationQuery {
   page?: string;
   limit?: string;
+  search?: string;
+  orderByName?: 'asc' | 'desc';
+  orderByTitle?: 'asc' | 'desc';
+  orderByPublishDate?: 'asc' | 'desc';
+  orderById?: 'asc' | 'desc';
+  orderByAmount?: 'asc' | 'desc';
 }
 
 export interface PaginationMeta {
   page: number;
   limit: number;
-  total: number;
-  totalPages: number;
+  prev_page: number | null;  // ← Berubah format
+  next_page: number | null;  // ← Berubah format
 }
 
 export interface PaginatedResponse<T> {
-  status: 'success';
+  success: boolean;
+  message: string;
   data: T[];
   meta: PaginationMeta;
 }
 
-// Auth types
+// Auth types (pakai email, bukan username)
 export interface RegisterRequest {
-  username: string;
+  username?: string;  // Optional
+  email: string;      // Required
   password: string;
-  email?: string;
 }
 
 export interface LoginRequest {
-  username: string;
+  email: string;      // Bukan username
   password: string;
 }
 
 export interface UserResponse {
   id: string;
-  username: string;
-  email: string | null;
+  username?: string;
+  email: string;
   created_at: Date;
+}
+
+// Transaction types
+export interface TransactionItem {
+  book_id: string;
+  quantity: number;
+}
+
+export interface CreateTransactionRequest {
+  user_id: string;
+  items: TransactionItem[];
 }

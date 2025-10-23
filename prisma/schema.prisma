@@ -9,9 +9,9 @@ datasource db {
 
 model User {
   id         String   @id @default(uuid()) @db.Uuid
-  username   String   @unique
+  username   String?  // ← Sekarang optional
+  email      String   @unique  // ← Sekarang required & unique
   password   String
-  email      String?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -34,7 +34,7 @@ model Genre {
 
 model Book {
   id               String    @id @default(uuid()) @db.Uuid
-  title            String    @unique
+  title            String
   writer           String
   publisher        String
   publication_year Int

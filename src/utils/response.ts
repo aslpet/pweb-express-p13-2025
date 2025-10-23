@@ -2,9 +2,9 @@ import { Response } from 'express';
 import { ApiResponse, PaginatedResponse, PaginationMeta } from '../types';
 
 export class ResponseHelper {
-  static success<T>(res: Response, data: T, message?: string, statusCode = 200) {
+  static success<T>(res: Response, data: T, message: string, statusCode = 200) {
     return res.status(statusCode).json({
-      status: 'success',
+      success: true,
       message,
       data
     } as ApiResponse<T>);
@@ -12,7 +12,7 @@ export class ResponseHelper {
 
   static error(res: Response, message: string, statusCode = 500) {
     return res.status(statusCode).json({
-      status: 'error',
+      success: false,
       message
     } as ApiResponse);
   }
@@ -21,10 +21,12 @@ export class ResponseHelper {
     res: Response,
     data: T[],
     meta: PaginationMeta,
+    message: string,
     statusCode = 200
   ) {
     return res.status(statusCode).json({
-      status: 'success',
+      success: true,
+      message,
       data,
       meta
     } as PaginatedResponse<T>);

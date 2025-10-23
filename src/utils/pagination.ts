@@ -14,11 +14,13 @@ export class PaginationHelper {
     limit: number,
     total: number
   ): PaginationMeta {
+    const totalPages = Math.ceil(total / limit);
+    
     return {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit)
+      prev_page: page > 1 ? page - 1 : null,
+      next_page: page < totalPages ? page + 1 : null
     };
   }
 }

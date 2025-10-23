@@ -23,25 +23,25 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health check endpoint (sesuai dokumentasi)
+app.get('/health-check', (req: Request, res: Response) => {
+  res.json({ 
+    success: true,
+    message: 'Hello World!',
+    data: new Date().toDateString()
+  });
+});
+
 // Routes
 app.use('/auth', authRoutes);
 app.use('/books', bookRoutes);
 app.use('/genre', genreRoutes);
 app.use('/transactions', transactionRoutes);
 
-// Health check endpoint
-app.get('/', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'success',
-    message: 'IT Literature Shop API is running!',
-    timestamp: new Date().toISOString()
-  });
-});
-
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
-    status: 'error',
+    success: false,
     message: 'Endpoint not found'
   });
 });

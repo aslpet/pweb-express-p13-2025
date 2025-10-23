@@ -9,91 +9,92 @@ import { RegisterRequest, LoginRequest } from '../types';
 // Register
 export const register = async (req: Request<{}, {}, RegisterRequest>, res: Response) => {
   try {
-    const { username, password, email } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
-      return ResponseHelper.error(res, 'Username dan password wajib diisi', 400);
+    // Validasi input (email & password required)
+    if (!email || !password) {
+      return ResponseHelper.error(res, 'Email and password are required', 400);
     }
 
+    // Cek apakah email sudah ada
     const existingUser = await prisma.user.findUnique({
-      where: { username }
+      where: { email: email }
     });
 
     if (existingUser) {
-      return ResponseHelper.error(res, 'Username sudah digunakan', 400);
+      return ResponseHelper.error(res, 'Email already registered', 400);
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Buat user baru
     const user = await prisma.user.create({
       data: {
-        username,
-        password: hashedPassword,
-        email: email || null
+        username: username || null,
+        email,
+        password: hashedPassword
       },
       select: {
         id: true,
-        username: true,
         email: true,
         created_at: true
       }
     });
 
-    return ResponseHelper.success(res, user, 'Registrasi berhasil', 201);
+    return ResponseHelper.success(res, user, 'User registered successfully', 201);
   } catch (error) {
     console.error('Register error:', error);
-    return ResponseHelper.error(res, 'Terjadi kesalahan server');
+    return ResponseHelper.error(res, 'Internal server error', 500);
   }
 };
 
 // Login
 export const login = async (req: Request<{}, {}, LoginRequest>, res: Response) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username || !password) {
-      return ResponseHelper.error(res, 'Username dan password wajib diisi', 400);
+    // Validasi input
+    if (!email || !password) {
+      return ResponseHelper.error(res, 'Email and password are required', 400);
     }
 
     if (!process.env.JWT_SECRET) {
-      return ResponseHelper.error(res, 'Server configuration error');
+      return ResponseHelper.error(res, 'Server configuration error', 500);
     }
 
+    // Cari user by email
     const user = await prisma.user.findUnique({
-      where: { username }
+      where: { email: email }
     });
 
     if (!user) {
-      return ResponseHelper.error(res, 'Username atau password salah', 401);
+      return ResponseHelper.error(res, 'Invalid credentials', 401);
     }
 
+    // Verifikasi password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return ResponseHelper.error(res, 'Username atau password salah', 401);
+      return ResponseHelper.error(res, 'Invalid credentials', 401);
     }
 
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, username: user.username },
+      { id: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     return ResponseHelper.success(
       res,
-      {
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email
-        }
-      },
-      'Login berhasil'
+      { access_token: token },  // ← Sesuai dokumentasi
+      'Login successfully',
+      200
     );
   } catch (error) {
     console.error('Login error:', error);
-    return ResponseHelper.error(res, 'Terjadi kesalahan server');
+    return ResponseHelper.error(res, 'Internal server error', 500);
   }
 };
 
@@ -103,7 +104,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return ResponseHelper.error(res, 'User tidak terautentikasi', 401);
+      return ResponseHelper.error(res, 'Unauthorized', 401);
     }
 
     const user = await prisma.user.findUnique({
@@ -111,19 +112,17 @@ export const getMe = async (req: AuthRequest, res: Response) => {
       select: {
         id: true,
         username: true,
-        email: true,
-        created_at: true,
-        updated_at: true
+        email: true
       }
     });
 
     if (!user) {
-      return ResponseHelper.error(res, 'User tidak ditemukan', 404);
+      return ResponseHelper.error(res, 'User not found', 404);
     }
 
-    return ResponseHelper.success(res, user);
+    return ResponseHelper.success(res, user, 'Get me successfully', 200);
   } catch (error) {
     console.error('Get me error:', error);
-    return ResponseHelper.error(res, 'Terjadi kesalahan server');
+    return ResponseHelper.error(res, 'Internal server error', 500);
   }
 };
