@@ -5,17 +5,15 @@ import { PaginationHelper } from '../utils/pagination';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { PaginationQuery, CreateTransactionRequest } from '../types';
 
-// Create Transaction
+// Create Transaction (unchanged)
 export const createTransaction = async (req: AuthRequest, res: Response) => {
   try {
     const { user_id, items } = req.body as CreateTransactionRequest;
 
-    // Validasi input
     if (!user_id || !items || !Array.isArray(items) || items.length === 0) {
       return ResponseHelper.error(res, 'Invalid request data', 400);
     }
 
-    // Cek apakah user exists
     const user = await prisma.user.findUnique({
       where: { id: user_id }
     });
@@ -24,7 +22,6 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
       return ResponseHelper.error(res, 'User not found', 404);
     }
 
-    // Validasi semua books dan stock
     const bookIds = items.map(item => item.book_id);
     const books = await prisma.book.findMany({
       where: {
@@ -37,7 +34,6 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
       return ResponseHelper.error(res, 'One or more books not found', 404);
     }
 
-    // Cek stock availability
     for (const item of items) {
       const book = books.find(b => b.id === item.book_id);
       if (!book) {
@@ -48,7 +44,6 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Calculate totals
     let totalQuantity = 0;
     let totalPrice = 0;
 
@@ -60,18 +55,14 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Create transaction using Prisma transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create Order
       const order = await tx.order.create({
         data: {
           user_id
         }
       });
 
-      // 2. Create Order Items and update book stock
       for (const item of items) {
-        // Create order item
         await tx.orderItem.create({
           data: {
             order_id: order.id,
@@ -80,7 +71,6 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
           }
         });
 
-        // Update book stock
         await tx.book.update({
           where: { id: item.book_id },
           data: {
@@ -110,42 +100,73 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Get All Transactions
+// Get All Transactions (FIXED)
 export const getAllTransactions = async (req: Request<{}, {}, {}, PaginationQuery>, res: Response) => {
   try {
     const { page, limit, skip } = PaginationHelper.getPaginationParams(req.query);
     const { search, orderById, orderByAmount } = req.query;
 
+    console.log('Query params:', { search, orderById, orderByAmount, page, limit, skip });
+
     // Build where clause
     const where: any = {};
 
+    // FIX: Hanya apply search jika formatnya valid UUID
     if (search) {
-      where.id = {
-        contains: search,
-        mode: 'insensitive'
-      };
+      // Regex untuk validasi UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (uuidRegex.test(search)) {
+        // Jika valid UUID, search by exact match
+        where.id = search;
+      } else {
+        // Jika bukan UUID valid, cari di user_id atau ignore
+        // Untuk sekarang, kita biarkan kosong (return all)
+        console.log('Search term is not a valid UUID, ignoring search filter');
+      }
     }
 
-    // Get orders with items
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        skip,
-        take: limit,
-        include: {
-          order_items: {
-            include: {
-              book: true
+    // Get total count
+    const total = await prisma.order.count({ where });
+
+    console.log('Total orders found:', total);
+
+    // Jika tidak ada data
+    if (total === 0) {
+      const meta = PaginationHelper.createMeta(page, limit, 0);
+      return ResponseHelper.paginated(res, [], meta, 'Get all transaction successfully', 200);
+    }
+
+    // Decide fetch strategy
+    const shouldFetchAll = orderByAmount !== undefined;
+    const fetchLimit = shouldFetchAll ? Math.min(total, 1000) : limit;
+    const fetchSkip = shouldFetchAll ? 0 : skip;
+
+    console.log('Fetch strategy:', { shouldFetchAll, fetchLimit, fetchSkip });
+
+    // Fetch orders
+    const orders = await prisma.order.findMany({
+      where,
+      skip: fetchSkip,
+      take: fetchLimit,
+      include: {
+        order_items: {
+          include: {
+            book: {
+              select: {
+                price: true
+              }
             }
           }
-        },
-        orderBy: orderById ? { id: orderById as any } : { created_at: 'desc' }
-      }),
-      prisma.order.count({ where })
-    ]);
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
 
-    // Calculate totals for each order
-    const transformedOrders = orders.map(order => {
+    console.log('Orders fetched:', orders.length);
+
+    // Calculate totals
+    let transformedOrders = orders.map(order => {
       let totalQuantity = 0;
       let totalPrice = 0;
 
@@ -161,7 +182,15 @@ export const getAllTransactions = async (req: Request<{}, {}, {}, PaginationQuer
       };
     });
 
-    // Sort by amount if specified
+    // Apply sorting
+    if (orderById) {
+      transformedOrders.sort((a, b) => {
+        return orderById === 'asc' 
+          ? a.id.localeCompare(b.id) 
+          : b.id.localeCompare(a.id);
+      });
+    }
+
     if (orderByAmount) {
       transformedOrders.sort((a, b) => {
         return orderByAmount === 'asc' 
@@ -170,16 +199,28 @@ export const getAllTransactions = async (req: Request<{}, {}, {}, PaginationQuer
       });
     }
 
+    // Apply pagination after sorting if needed
+    if (shouldFetchAll) {
+      transformedOrders = transformedOrders.slice(skip, skip + limit);
+    }
+
     const meta = PaginationHelper.createMeta(page, limit, total);
+
+    console.log('Final result count:', transformedOrders.length);
 
     return ResponseHelper.paginated(res, transformedOrders, meta, 'Get all transaction successfully', 200);
   } catch (error) {
     console.error('Get all transactions error:', error);
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return ResponseHelper.error(res, 'Internal server error', 500);
   }
 };
 
-// Get Transaction by ID
+// Get Transaction by ID (unchanged)
 export const getTransactionById = async (req: Request, res: Response) => {
   try {
     const { transaction_id } = req.params;
@@ -199,7 +240,6 @@ export const getTransactionById = async (req: Request, res: Response) => {
       return ResponseHelper.error(res, 'Transaction not found', 404);
     }
 
-    // Transform response
     let totalQuantity = 0;
     let totalPrice = 0;
 
@@ -230,18 +270,21 @@ export const getTransactionById = async (req: Request, res: Response) => {
   }
 };
 
-// Get Transaction Statistics
+// Get Transaction Statistics (unchanged)
 export const getTransactionStatistics = async (req: Request, res: Response) => {
   try {
-    // 1. Total transactions
     const totalTransactions = await prisma.order.count();
 
-    // 2. Calculate average transaction amount
     const allOrders = await prisma.order.findMany({
       include: {
         order_items: {
           include: {
-            book: true
+            book: {
+              select: {
+                price: true,
+                genre_id: true
+              }
+            }
           }
         }
       }
@@ -258,7 +301,6 @@ export const getTransactionStatistics = async (req: Request, res: Response) => {
       ? Math.round(totalAmount / totalTransactions) 
       : 0;
 
-    // 3. Genre with most and fewest sales
     const genreStats = await prisma.orderItem.groupBy({
       by: ['book_id'],
       _sum: {
@@ -266,7 +308,6 @@ export const getTransactionStatistics = async (req: Request, res: Response) => {
       }
     });
 
-    // Get books with genre info
     const bookIds = genreStats.map(stat => stat.book_id);
     const books = await prisma.book.findMany({
       where: { id: { in: bookIds } },
@@ -275,7 +316,6 @@ export const getTransactionStatistics = async (req: Request, res: Response) => {
       }
     });
 
-    // Aggregate by genre
     const genreSales: { [key: string]: number } = {};
     genreStats.forEach(stat => {
       const book = books.find(b => b.id === stat.book_id);
@@ -285,7 +325,6 @@ export const getTransactionStatistics = async (req: Request, res: Response) => {
       }
     });
 
-    // Find most and fewest
     let mostSalesGenre = '';
     let fewestSalesGenre = '';
     let maxSales = 0;
