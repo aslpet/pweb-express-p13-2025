@@ -7,15 +7,19 @@ import { PaginationQuery } from '../types';
 // Create Genre
 export const createGenre = async (req: Request, res: Response) => {
   try {
-    const { name } = req.body;
+    const rawName = req.body?.name;
+    const name = (rawName ?? '').trim();
 
     if (!name) {
       return ResponseHelper.error(res, 'Name is required', 400);
     }
 
-    // Cek duplikasi
-    const existing = await prisma.genre.findUnique({
-      where: { name }
+    // Case-insensitive duplicate check
+    const existing = await prisma.genre.findFirst({
+      where: {
+        name: { equals: name, mode: 'insensitive' },
+        deleted_at: null,
+      }
     });
 
     if (existing) {
@@ -23,12 +27,8 @@ export const createGenre = async (req: Request, res: Response) => {
     }
 
     const genre = await prisma.genre.create({
-      data: { name },
-      select: {
-        id: true,
-        name: true,
-        created_at: true
-      }
+      data: { name }, // simpan versi yang sudah di-trim
+      select: { id: true, name: true, created_at: true }
     });
 
     return ResponseHelper.success(res, genre, 'Genre created successfully', 201);
@@ -116,33 +116,31 @@ export const getGenreById = async (req: Request, res: Response) => {
 export const updateGenre = async (req: Request, res: Response) => {
   try {
     const { genre_id } = req.params;
-    const { name } = req.body;
+    const rawName = req.body?.name;
+    const name = (rawName ?? '').trim();
 
     if (!name) {
       return ResponseHelper.error(res, 'Name is required', 400);
     }
 
-    // Cek apakah genre exists
+    // Pastikan genre ada
     const existing = await prisma.genre.findFirst({
-      where: {
-        id: genre_id,
-        deleted_at: null
-      }
+      where: { id: genre_id, deleted_at: null }
     });
 
     if (!existing) {
       return ResponseHelper.error(res, 'Genre not found', 404);
     }
 
-    // Cek duplikasi name (exclude current genre)
+    // Case-insensitive duplicate check (exclude diri sendiri)
     const duplicate = await prisma.genre.findFirst({
       where: {
-        name,
         id: { not: genre_id },
-        deleted_at: null
+        deleted_at: null,
+        name: { equals: name, mode: 'insensitive' },
       }
     });
-
+    
     if (duplicate) {
       return ResponseHelper.error(res, 'Genre name already exists', 400);
     }
@@ -150,11 +148,7 @@ export const updateGenre = async (req: Request, res: Response) => {
     const updated = await prisma.genre.update({
       where: { id: genre_id },
       data: { name },
-      select: {
-        id: true,
-        name: true,
-        updated_at: true
-      }
+      select: { id: true, name: true, updated_at: true }
     });
 
     return ResponseHelper.success(res, updated, 'Genre updated successfully', 200);
