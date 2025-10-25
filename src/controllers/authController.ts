@@ -16,6 +16,16 @@ export const register = async (req: Request<{}, {}, RegisterRequest>, res: Respo
       return ResponseHelper.error(res, 'Email and password are required', 400);
     }
 
+    if (!email.includes('@')) {
+      if (!email.includes('.')) {
+        return ResponseHelper.error(res, 'Invalid email format: \'@\' & \'.\'', 400);
+      }
+      return ResponseHelper.error(res, 'Invalid email format: @', 400);
+    }
+    if (!email.includes('.')) {
+      return ResponseHelper.error(res, 'Invalid email format: .', 400);
+    }
+
     // Cek apakah email sudah ada
     const existingUser = await prisma.user.findUnique({
       where: { email: email }
